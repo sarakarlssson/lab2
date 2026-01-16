@@ -78,15 +78,60 @@ app.post("/tasks", async (req, res) => {
 })
 
 
-app.put("/tasks/:id", (req, res) => {
-    console.log(req.params.id)
-    res.send(req.params.id)
+app.put("/tasks/:id", async (req, res) => {
+    const connection = await createConnection();
+    const id = req.params.id;
+    const { title, description, status } = req.body;
+
+    try {
+        const [existing] = await connection.execute('SELECT * FROM tasks WHERE id = ?', [id]);
+
+        if (existing.length === 0) {
+            return res.status(404).json({ error: `Task med id ${id} hittades inte` });
+        }
+        const sql = `
+            UPDATE tasks 
+            SET task_name = ?, description = ?, status = ? 
+            WHERE id = ?
+        `;
+        await connection.execute(sql, [title, description, status, id]);
+
+        const [updatedRows] = await connection.execute('SELECT * FROM tasks WHERE id = ?', [id]);
+        res.status(200).json(updatedRows[0]);
+
+    } catch (err) {
+        console.error(err);
+        res.status(500).send("Fel vid uppdatering av task");
+    }
+    finally {
+        await connection.end();
+    }
+
 })
 
 
-app.delete("/tasks/:id", (req, res) => {
-    console.log(req.params.id)
-    res.send(req.params.id)
+app.delete("/tasks/:id", async (req, res) => {
+    const connection = await createConnection();
+    const id = req.params.id;
+
+    try {
+        const [existing] = await connection.execute('SELECT * FROM tasks WHERE id = ?', [id]);
+
+        if (existing.length === 0) {
+            return res.status(404).json({ error: `Task med id ${id} hittades inte` });
+        }
+        const sql = 'DELETE FROM tasks WHERE id = ?';
+
+        await connection.execute(sql, [id]);
+        res.status(200).json({ message: "Task deleted successfully" });
+    }
+    catch (err) {
+        console.error(err);
+        res.status(500).send("Fel vid borttagning av task");
+    }
+    finally {
+        await connection.end();
+    }
 })
 
 
